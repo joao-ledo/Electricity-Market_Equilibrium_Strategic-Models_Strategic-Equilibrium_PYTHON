@@ -1,4 +1,3 @@
-
 #******************************************************************************************************************************************************
 #*                                                                 MARKET CLEARING MODEL                                                              *
 #*************************************************************************************************-Developed by Joao Augusto Silva Ledo-***************
@@ -59,22 +58,11 @@ class ReturnOutputSolution:  # method of the class accountable for creating its 
     def __str__(self):  # method of the class accountable for returning all its atributes in a dynamic string
         return str(self.__dict__)
 
-def get_values_from_user(prompt):
+def get_values_from_user(prompt, allowed_values):
     while True:
         try:
             value = int(input(prompt))
-            if (value != 1) and (value != 2):
-                print("\n PLEASE SELECT CARREFULLY! \n")
-            else:
-                return value
-        except ValueError:
-            print("\n Invalid input! {prompt}")
-            
-def get_values_from_user_Solvers(prompt):
-    while True:
-        try:
-            value = int(input(prompt))
-            if (value > 7) or (value <= 0):
+            if value not in allowed_values:
                 print("\n PLEASE SELECT CARREFULLY! \n")
             else:
                 return value
@@ -82,12 +70,12 @@ def get_values_from_user_Solvers(prompt):
             print("\n Invalid input! {prompt}")
             
 def Linear_or_Non_Linear():
-        Selec_Linear_Non_Linear = get_values_from_user("\n Please select: \n 1 - Linear Solvers \n 2 - Non-linear Solver \n Type the value: ")
+        Selec_Linear_Non_Linear = get_values_from_user("\n Please select: \n 1 - Linear Solvers \n 2 - Non-linear Solver \n Type the value: ", list(range(1, 3)))
         if Selec_Linear_Non_Linear == 1:
-            Select_Solver = get_values_from_user_Solvers("\n Please select: \n 1 - glpk \n 2 - cbc \n 3 - highs \n 4 - cplex \n 5 - gurobi \n 6 - xpress \n 7 - scip \n Type the value: ")
+            Select_Solver = get_values_from_user("\n Please select: \n 1 - glpk \n 2 - cbc \n 3 - highs \n 4 - cplex \n 5 - gurobi \n 6 - xpress \n 7 - scip \n Type the value: ", list(range(1, 8)))
             solver_name = LinearSolver[Select_Solver-1]
         else:
-            Select_Solver = get_values_from_user_Solvers("\n Please select: \n 1 - ipopt \n 2 - knitro \n 3 - conopt \n 4 - bonmin \n 5 - couenne \n 6 - baron \n 7 - scip \n Type the value: ")
+            Select_Solver = get_values_from_user("\n Please select: \n 1 - ipopt \n 2 - knitro \n 3 - conopt \n 4 - bonmin \n 5 - couenne \n 6 - baron \n 7 - scip \n Type the value: ", list(range(1, 8)))
             solver_name = Nonlinear[Select_Solver-1]
         return [Select_Solver, solver_name]
 
@@ -175,7 +163,7 @@ MarketClearingModel.max_demand_rule = Constraint(MarketClearingModel.JC, rule=ma
 # Add suffix for duals
 MarketClearingModel.dual = Suffix(direction=Suffix.IMPORT)
     
-Select_Solve_Locally_NEOS = get_values_from_user("\n Please select: \n 1 - Solve Locally \n 2 - Solve using NEOS Server \n Type the value: ")
+Select_Solve_Locally_NEOS = get_values_from_user("\n Please select: \n 1 - Solve Locally \n 2 - Solve using NEOS Server \n Type the value: ", list(range(1, 3)))
 
 if Select_Solve_Locally_NEOS == 1:
     (Select_Solver, solver_name) = Linear_or_Non_Linear()
