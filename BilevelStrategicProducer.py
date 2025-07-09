@@ -41,8 +41,9 @@ class LoadInputData:  # method of the class accountable for creating its atribut
         return str(self.__dict__)
     
 class ReturnOutputSolution:  # method of the class accountable for creating its outputs
-    def __init__(self, MCP, Objective, p, d, Strategic_o, Cleared_Price, profit, utility, SocialWelfare, mu_p_min, mu_p_max, mu_d_min, mu_d_max, Time, Solver_Name, Min_Max_Obj, Locally_or_NEOS_Server):
+    def __init__(self, MCP, Strategic_Company, Objective, p, d, Strategic_o, Cleared_Price, profit, utility, SocialWelfare, mu_p_min, mu_p_max, mu_d_min, mu_d_max, Time, Solver_Name, Min_Max_Obj, Locally_or_NEOS_Server):
         self.Lower_level_MCP = MCP
+        self.Strategic_Company = Strategic_Company
         self.Objective = Objective
         self.p = p
         self.d = d
@@ -69,22 +70,11 @@ class ReturnOutputSolution:  # method of the class accountable for creating its 
     def __str__(self):  # method of the class accountable for returning all its atributes in a dynamic string
         return str(self.__dict__)
 
-def get_values_from_user(prompt):
+def get_values_from_user(prompt, allowed_values):
     while True:
         try:
             value = int(input(prompt))
-            if (value != 1) and (value != 2):
-                print("\n PLEASE SELECT CARREFULLY! \n")
-            else:
-                return value
-        except ValueError:
-            print("\n Invalid input! {prompt}")
-            
-def get_values_from_user_Solvers(prompt):
-    while True:
-        try:
-            value = int(input(prompt))
-            if (value > 7) or (value <= 0):
+            if value not in allowed_values:
                 print("\n PLEASE SELECT CARREFULLY! \n")
             else:
                 return value
@@ -92,12 +82,12 @@ def get_values_from_user_Solvers(prompt):
             print("\n Invalid input! {prompt}")
             
 def Linear_or_Non_Linear():
-        Selec_Linear_Non_Linear = get_values_from_user("\n Please select: \n 1 - Linear Solvers \n 2 - Non-linear Solver \n Type the value: ")
+        Selec_Linear_Non_Linear = get_values_from_user("\n Please select: \n 1 - Linear Solvers \n 2 - Non-linear Solver \n Type the value: ", list(range(1, 3)))
         if Selec_Linear_Non_Linear == 1:
-            Select_Solver = get_values_from_user_Solvers("\n Please select: \n 1 - glpk \n 2 - cbc \n 3 - highs \n 4 - cplex \n 5 - gurobi \n 6 - xpress \n 7 - scip \n Type the value: ")
+            Select_Solver = get_values_from_user("\n Please select: \n 1 - glpk \n 2 - cbc \n 3 - highs \n 4 - cplex \n 5 - gurobi \n 6 - xpress \n 7 - scip \n Type the value: ", list(range(1, 8)))
             solver_name = LinearSolver[Select_Solver-1]
         else:
-            Select_Solver = get_values_from_user_Solvers("\n Please select: \n 1 - ipopt \n 2 - knitro \n 3 - conopt \n 4 - bonmin \n 5 - couenne \n 6 - baron \n 7 - snopt \n Type the value: ")
+            Select_Solver = get_values_from_user("\n Please select: \n 1 - ipopt \n 2 - knitro \n 3 - conopt \n 4 - bonmin \n 5 - couenne \n 6 - baron \n 7 - snopt \n Type the value: ", list(range(1, 8)))
             solver_name = Nonlinear[Select_Solver-1]
         return [Select_Solver, solver_name]
 
@@ -117,12 +107,14 @@ MarketClearingModel.U = Set(MarketClearingModel.I, initialize={
 })
 MarketClearingModel.IU = Set(dimen=2, initialize=lambda m: [(i, u) for i in m.I for u in m.U[i]])
 
+Strategic_Producer = get_values_from_user(f"\n Please select the strategic company in {list(MarketClearingModel.I)}: ", MarketClearingModel.I.data())
+
 # Strategic Set of Strategic Producers
-MarketClearingModel.Y = Set(initialize = [1])
+MarketClearingModel.Y = Set(initialize = [Strategic_Producer])
 MarketClearingModel.YU = Set(dimen=2, initialize=lambda m: [(y, u) for y in m.Y for u in m.U[y]])
 
 # Strategic Set of Non-Strategic Producers
-MarketClearingModel.K = Set(initialize = [2])
+MarketClearingModel.K = Set(initialize = lambda m: [i for i in m.I if i != Strategic_Producer])
 MarketClearingModel.KU = Set(dimen=2, initialize=lambda m: [(k, u) for k in m.K for u in m.U[k]])
 
 MarketClearingModel.J = Set(initialize= [1])  # Example with 1 consumer
@@ -178,7 +170,6 @@ ModelInput = LoadInputData({(i, u): MarketClearingModel.Cost[i, u] for i, u in M
 def Profit_objective(model):
     return sum(model.Lambda*model.p[y, u] - model.Cost[y, u]*model.p[y, u] for y, u in model.YU)
 MarketClearingModel.Objective = Objective(rule=Profit_objective, sense=maximize)
-
 
 # Upper-level constraints *
 def Strategic_Offering_Boundary_constraint(model, y, u):
@@ -238,7 +229,7 @@ def positivity_d_max_constraint(model, j, c):
     return model.mu_d_max[j, c] >= 0
 MarketClearingModel.positivity_d_max_constraint = Constraint(MarketClearingModel.JC, rule=positivity_d_max_constraint)
 
-MCP_KKT_or_PDOC = get_values_from_user("\n Please select: \n 1 - KKT MCP Market Clearing model \n 2 - PDOC MCP Market Clearing model \n Type the value: ")
+MCP_KKT_or_PDOC = get_values_from_user("\n Please select: \n 1 - KKT MCP Market Clearing model \n 2 - PDOC MCP Market Clearing model \n Type the value: ", list(range(1, 3)))
 
 if MCP_KKT_or_PDOC == 1:
     MCP = 'KKT MCP'
@@ -267,7 +258,7 @@ else:
 # Add suffix for duals
 MarketClearingModel.dual = Suffix(direction=Suffix.IMPORT)
     
-Select_Solve_Locally_NEOS = get_values_from_user("\n Please select: \n 1 - Solve Locally \n 2 - Solve using NEOS Server \n Type the value: ")
+Select_Solve_Locally_NEOS = get_values_from_user("\n Please select: \n 1 - Solve Locally \n 2 - Solve using NEOS Server \n Type the value: ", list(range(1, 3)))
 
 if Select_Solve_Locally_NEOS == 1:
     (Select_Solver, solver_name) = Linear_or_Non_Linear()
@@ -306,6 +297,7 @@ else:
 
 cleared_price = MarketClearingModel.Lambda.value
 ModelOutput = ReturnOutputSolution(MCP,
+                                   Strategic_Producer,
                                    MarketClearingModel.Objective(),
                                    {(i, u): MarketClearingModel.p[i, u].value for i, u in MarketClearingModel.IU},
                                    {(j, c): MarketClearingModel.d[j, c].value for j, c in MarketClearingModel.JC},
