@@ -41,9 +41,9 @@ class LoadInputData:  # method of the class accountable for creating its atribut
         return str(self.__dict__)
     
 class ReturnOutputSolution:  # method of the class accountable for creating its outputs
-    def __init__(self, MCP, Strategic_Company, Objective, p, d, Strategic_o, Cleared_Price, profit, utility, SocialWelfare, mu_p_min, mu_p_max, mu_d_min, mu_d_max, Time, Solver_Name, Min_Max_Obj, Locally_or_NEOS_Server):
+    def __init__(self, MCP, Strategic_Producer, Objective, p, d, Strategic_o, Cleared_Price, profit, utility, SocialWelfare, mu_p_min, mu_p_max, mu_d_min, mu_d_max, Time, Solver_Name, Min_Max_Obj, Locally_or_NEOS_Server):
         self.Lower_level_MCP = MCP
-        self.Strategic_Company = Strategic_Company
+        self.Strategic_Producer = Strategic_Producer
         self.Objective = Objective
         self.p = p
         self.d = d
@@ -109,11 +109,11 @@ BilevelStrategicProducerModel.IU = Set(dimen=2, initialize=lambda m: [(i, u) for
 
 Strategic_Producer = get_values_from_user(f"\n Please select the strategic company in {list(BilevelStrategicProducerModel.I)}: ", BilevelStrategicProducerModel.I.data())
 
-# Strategic Set of Strategic Producers
+# Set of Strategic Producers
 BilevelStrategicProducerModel.Y = Set(initialize = [Strategic_Producer])
 BilevelStrategicProducerModel.YU = Set(dimen=2, initialize=lambda m: [(y, u) for y in m.Y for u in m.U[y]])
 
-# Strategic Set of Non-Strategic Producers
+# Set of Non-Strategic Producers
 BilevelStrategicProducerModel.K = Set(initialize = lambda m: [i for i in m.I if i != Strategic_Producer])
 BilevelStrategicProducerModel.KU = Set(dimen=2, initialize=lambda m: [(k, u) for k in m.K for u in m.U[k]])
 
@@ -209,9 +209,9 @@ def deriv_p_NS_constraint(model, k, u):
     return model.o_aux[k, u] - model.Lambda - model.mu_p_min[k, u] + model.mu_p_max[k, u] == 0
 BilevelStrategicProducerModel.deriv_p_NS_constraint = Constraint(BilevelStrategicProducerModel.KU, rule=deriv_p_NS_constraint)
 
-def deriv_d_constraint(model, j, c):
+def deriv_d_NS_constraint(model, j, c):
     return - model.b[j, c] + model.Lambda - model.mu_d_min[j, c] + model.mu_d_max[j, c] == 0
-BilevelStrategicProducerModel.deriv_d_constraint = Constraint(BilevelStrategicProducerModel.JC, rule=deriv_d_constraint)
+BilevelStrategicProducerModel.deriv_d_NS_constraint = Constraint(BilevelStrategicProducerModel.JC, rule=deriv_d_NS_constraint)
 
 def positivity_p_min_constraint(model, i, u):
     return model.mu_p_min[i, u] >= 0
