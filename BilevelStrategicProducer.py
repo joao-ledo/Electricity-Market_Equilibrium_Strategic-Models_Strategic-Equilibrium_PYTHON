@@ -269,6 +269,17 @@ else:
 if Select_Solve_Locally_NEOS == 1:
     Locally_or_NEOS_Server = 'Locally'
     solver = SolverFactory(solver_name)
+    
+    # When using IPOPT it increases its tolerance and make the method to converge to problems with complementary constraints, however, since the tolerance is loose, the solution might be degenerated (suboptimal)
+    # IPOPT will accept a solution that might not strictly satisfy all KKT optimality or complementarity conditions to machine precision — as long as it’s within these looser tolerances.
+    # To solve using KKT please prefer KINITRO
+    #    solver.options['tol'] = 1e-5
+    #    solver.options['acceptable_tol'] = 1e-4
+    #    solver.options['compl_inf_tol'] = 1e-4
+    #    solver.options['max_iter'] = 5000
+    #    solver.options['bound_relax_factor'] = 1e-6
+    #    solver.options['print_level'] = 5
+    
     # Start timer
     start_time_neos = time.time()
     
