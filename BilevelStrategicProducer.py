@@ -29,7 +29,7 @@ from pyomo.opt import SolverFactory
 def main():
     ModelInput = LoadInputData_function()
     BilevelStrategicProducerModel = Creates_BilevelStrategicProducerModel(ModelInput)    
-    ModelOutput = Solve_Model(BilevelStrategicProducerModel, ModelInput)
+    ModelOutput = Solve_Model(BilevelStrategicProducerModel)
     print("\n", ModelInput, "\n")
     print(ModelOutput, "\n")
 
@@ -78,9 +78,7 @@ class LoadInputData:  # method of the class accountable for creating its atribut
         return str(self.__dict__)
     
 class ReturnOutputSolution:  # method of the class accountable for creating its outputs
-    def __init__(self, MCP, Strategic_Producer, Objective, p, d, Strategic_o, Cleared_Price, profit, utility, SocialWelfare, mu_p_min, mu_p_max, mu_d_min, mu_d_max, Time, Solver_Name, Min_Max_Obj, Locally_or_NEOS_Server):
-        self.Lower_level_MCP = MCP
-        self.Strategic_Producer = Strategic_Producer
+    def __init__(self, Objective, p, d, Strategic_o, Cleared_Price, profit, utility, SocialWelfare, mu_p_min, mu_p_max, mu_d_min, mu_d_max, Time, Solver_Name, Min_Max_Obj, Locally_or_NEOS_Server):
         self.Objective = Objective
         self.p = p
         self.d = d
@@ -293,7 +291,7 @@ def Creates_BilevelStrategicProducerModel(ModelInput):
 ##########################################################################
 # SOLVE MODEL FUNCTION
 ##########################################################################
-def Solve_Model(BilevelStrategicProducerModel, ModelInput):
+def Solve_Model(BilevelStrategicProducerModel):
     Select_Solve_Locally_NEOS = get_values_from_user("\n Please select: \n 1 - Solve Locally \n 2 - Solve using NEOS Server \n Type the value: ", list(range(1, 3)))   
     if Select_Solve_Locally_NEOS == 1:
         (Select_Solver, solver_name) = Linear_or_Non_Linear()
@@ -342,9 +340,7 @@ def Solve_Model(BilevelStrategicProducerModel, ModelInput):
         elapsed_time_neos = end_time_neos - start_time_neos
     
     cleared_price = BilevelStrategicProducerModel.Lambda.value
-    ModelOutput = ReturnOutputSolution(ModelInput.MCP,
-                                       ModelInput.Strategic_Producer,
-                                       BilevelStrategicProducerModel.Objective(),
+    ModelOutput = ReturnOutputSolution(BilevelStrategicProducerModel.Objective(),
                                        {(i, u): BilevelStrategicProducerModel.p[i, u].value for i, u in BilevelStrategicProducerModel.IU},
                                        {(j, c): BilevelStrategicProducerModel.d[j, c].value for j, c in BilevelStrategicProducerModel.JC},
                                        {(y, u): BilevelStrategicProducerModel.o[y, u].value for y, u in BilevelStrategicProducerModel.YU},
