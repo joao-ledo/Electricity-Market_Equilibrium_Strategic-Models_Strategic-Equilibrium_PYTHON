@@ -27,23 +27,46 @@ from pyomo.opt import SolverFactory
 # MAIN
 ##########################################################################
 def main():
-    (BilevelStrategicProducerModel, ModelInput) = Creates_BilevelStrategicProducerModel()    
+    ModelInput = LoadInputData_function()
+    BilevelStrategicProducerModel = Creates_BilevelStrategicProducerModel(ModelInput)    
     ModelOutput = Solve_Model(BilevelStrategicProducerModel, ModelInput)
     print("\n", ModelInput, "\n")
     print(ModelOutput, "\n")
+
+##########################################################################
+# LOAD INPUT DATA FUNCTION
+##########################################################################
+def LoadInputData_function():
+    ModelInput = LoadInputData('Input Data')
+    ModelInput.Set_I = [1, 2]
+    ModelInput.Set_U = {1: [1],2: [2]}
+    ModelInput.Set_J = [1]
+    ModelInput.Set_C = {1: [1]}
+    ModelInput.Cost = {(1, 1): 1, (2, 2): 2}
+    ModelInput.max_utility = {(1, 1): 3,}
+    ModelInput.p_max = {(1, 1): 6,(2, 2): 6}
+    ModelInput.d_max = {(1, 1): 10}
+    ModelInput.o_aux = ModelInput.Cost
+    ModelInput.b = ModelInput.max_utility
+    ModelInput.Strategic_Producer = get_values_from_user(f"\n Please select the strategic company in {ModelInput.Set_I}: ", ModelInput.Set_I)
+    return ModelInput
     
 ##########################################################################
 # CLASS DEFINITION
 ##########################################################################
 class LoadInputData:  # method of the class accountable for creating its atributes
-    def __init__(self, Strategic_Producer, Cost, max_utility, p_max, d_max, o_aux, b):
-        self.Strategic_Producer = Strategic_Producer
-        self.Cost = Cost
-        self.max_utility = max_utility
-        self.p_max = p_max
-        self.d_max = d_max
-        self.o_aux = o_aux
-        self.b = b
+    def __init__(self, Name):
+        self.Name = Name
+#        self.Set_I
+#        self.Set_U
+#        self.Set_J
+#        self.Set_C
+#        self.Cost = Cost
+#        self.max_utility = max_utility
+#        self.p_max = p_max
+#        self.d_max = d_max
+#        self.o_aux = o_aux
+#        self.b = b
         
     def __repr__(self):  # method of the class accountable for returning all its atributes in a dynamic print
         return f"{self.__dict__}"
@@ -201,52 +224,34 @@ def KKT_or_PDOC(model):
         model.SDE_constraint = Constraint(rule=SDE_constraint)  
     return (model, MCP)
 
-def Creates_BilevelStrategicProducerModel():
+def Creates_BilevelStrategicProducerModel(ModelInput):
     BilevelStrategicProducerModel = ConcreteModel()
     
     # Creates the Sets
-    BilevelStrategicProducerModel.I = Set(initialize= [1, 2])  # Example with 2 producers
-    BilevelStrategicProducerModel.U = Set(BilevelStrategicProducerModel.I, initialize={
-        1: [1],
-        2: [2]
-    })
+    # Set of all Producers
+    BilevelStrategicProducerModel.I = Set(initialize= ModelInput.Set_I)  # Example with 2 producers
+    BilevelStrategicProducerModel.U = Set(BilevelStrategicProducerModel.I, initialize= ModelInput.Set_U)
     BilevelStrategicProducerModel.IU = Set(dimen=2, initialize=lambda m: [(i, u) for i in m.I for u in m.U[i]])
     
-    Strategic_Producer = get_values_from_user(f"\n Please select the strategic company in {list(BilevelStrategicProducerModel.I)}: ", BilevelStrategicProducerModel.I.data())
-    
     # Set of Strategic Producers
-    BilevelStrategicProducerModel.Y = Set(initialize = [Strategic_Producer])
+    BilevelStrategicProducerModel.Y = Set(initialize = [ModelInput.Strategic_Producer])
     BilevelStrategicProducerModel.YU = Set(dimen=2, initialize=lambda m: [(y, u) for y in m.Y for u in m.U[y]])
     
     # Set of Non-Strategic Producers
-    BilevelStrategicProducerModel.K = Set(initialize = lambda m: [i for i in m.I if i != Strategic_Producer])
+    BilevelStrategicProducerModel.K = Set(initialize = lambda m: [i for i in m.I if i != ModelInput.Strategic_Producer])
     BilevelStrategicProducerModel.KU = Set(dimen=2, initialize=lambda m: [(k, u) for k in m.K for u in m.U[k]])
     
-    BilevelStrategicProducerModel.J = Set(initialize= [1])  # Example with 1 consumer
-    BilevelStrategicProducerModel.C = Set(BilevelStrategicProducerModel.J, initialize={
-        1: [1]
-    })
+    # Set of all Consumers
+    BilevelStrategicProducerModel.J = Set(initialize= ModelInput.Set_J)  # Example with 1 consumer
+    BilevelStrategicProducerModel.C = Set(BilevelStrategicProducerModel.J, initialize= ModelInput.Set_C)
     BilevelStrategicProducerModel.JC = Set(dimen=2, initialize=lambda m: [(j, c) for j in m.J for c in m.C[j]])
     
     # Parameters
-    BilevelStrategicProducerModel.Cost = Param(BilevelStrategicProducerModel.IU, initialize={
-        (1, 1): 1,
-        (2, 2): 2
-    })  # Cost per unit for each producer-unit pair
-    
-    BilevelStrategicProducerModel.max_utility = Param(BilevelStrategicProducerModel.JC, initialize={
-        (1, 1): 3,
-    })  # Max utility per consumer for each consumer-demand pair
-    
-    BilevelStrategicProducerModel.p_max =  Param(BilevelStrategicProducerModel.IU, 
-                                       initialize={(1, 1): 6, 
-                                                   (2, 2): 6}
-                                       )
-                                                            
-    BilevelStrategicProducerModel.d_max = Param(BilevelStrategicProducerModel.JC, initialize={(1, 1): 10})
-    
+    BilevelStrategicProducerModel.Cost = Param(BilevelStrategicProducerModel.IU, initialize= ModelInput.Cost)  # Cost per unit for each producer-unit pair
+    BilevelStrategicProducerModel.max_utility = Param(BilevelStrategicProducerModel.JC, initialize= ModelInput.max_utility)  # Max utility per consumer for each consumer-demand pair
+    BilevelStrategicProducerModel.p_max =  Param(BilevelStrategicProducerModel.IU,initialize= ModelInput.p_max)
+    BilevelStrategicProducerModel.d_max = Param(BilevelStrategicProducerModel.JC, initialize= ModelInput.d_max)
     BilevelStrategicProducerModel.o_aux = {(i, u): BilevelStrategicProducerModel.Cost[i, u] for i, u in BilevelStrategicProducerModel.IU}
-    
     BilevelStrategicProducerModel.b = {(j, c): BilevelStrategicProducerModel.max_utility[j, c] for j, c in BilevelStrategicProducerModel.JC}
     
     # Variables
@@ -261,16 +266,7 @@ def Creates_BilevelStrategicProducerModel():
     
     # Starting value
     #BilevelStrategicProducerModel.Lambda.value = 2
-    
-    # Saving Model Input Data
-    ModelInput = LoadInputData(Strategic_Producer,
-                               {(i, u): BilevelStrategicProducerModel.Cost[i, u] for i, u in BilevelStrategicProducerModel.IU},
-                               {(j, c): BilevelStrategicProducerModel.max_utility[j, c] for j, c in BilevelStrategicProducerModel.JC},
-                               {(i, u): BilevelStrategicProducerModel.p_max[i, u] for i, u in BilevelStrategicProducerModel.IU},
-                               {(j, c): BilevelStrategicProducerModel.d_max[j, c] for j, c in BilevelStrategicProducerModel.JC}, 
-                               {(k, u): BilevelStrategicProducerModel.o_aux[k, u] for k, u in BilevelStrategicProducerModel.KU},
-                               {(j, c): BilevelStrategicProducerModel.b[j, c] for j, c in BilevelStrategicProducerModel.JC})
-    
+        
     # Add constraints to the model
     BilevelStrategicProducerModel.Objective = Objective(rule=Profit_objective, sense=maximize)
     BilevelStrategicProducerModel.Strategic_Offering_Boundary_constraint = Constraint(BilevelStrategicProducerModel.YU, rule=Strategic_Offering_Boundary_constraint)
@@ -292,14 +288,13 @@ def Creates_BilevelStrategicProducerModel():
     # Add suffix for duals
     BilevelStrategicProducerModel.dual = Suffix(direction=Suffix.IMPORT)
 
-    return (BilevelStrategicProducerModel, ModelInput)
+    return BilevelStrategicProducerModel
 
 ##########################################################################
 # SOLVE MODEL FUNCTION
 ##########################################################################
 def Solve_Model(BilevelStrategicProducerModel, ModelInput):
-    Select_Solve_Locally_NEOS = get_values_from_user("\n Please select: \n 1 - Solve Locally \n 2 - Solve using NEOS Server \n Type the value: ", list(range(1, 3)))
-    
+    Select_Solve_Locally_NEOS = get_values_from_user("\n Please select: \n 1 - Solve Locally \n 2 - Solve using NEOS Server \n Type the value: ", list(range(1, 3)))   
     if Select_Solve_Locally_NEOS == 1:
         (Select_Solver, solver_name) = Linear_or_Non_Linear()
     else:
