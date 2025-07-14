@@ -27,8 +27,9 @@ from pyomo.opt import SolverFactory
 ##########################################################################
 def main():
     ModelInput = LoadInputData_function()
-    BilevelStrategicConsumerModel = Creates_BilevelStrategicConsumerModel(ModelInput)    
-    OutputSolution = Solve_Model(BilevelStrategicConsumerModel)
+    BilevelStrategicConsumerModel = Creates_BilevelStrategicConsumerModel(ModelInput)
+    (BilevelStrategicConsumerModel, Time, solver_name, Locally_or_NEOS_Server) = Solve_Model(BilevelStrategicConsumerModel)
+    OutputSolution = ReturnOutputSolution_function(BilevelStrategicConsumerModel, Time, solver_name, Locally_or_NEOS_Server)
     print("\n", ModelInput, "\n")
     print(OutputSolution, "\n")
 
@@ -49,7 +50,31 @@ def LoadInputData_function():
     ModelInput.b_aux = ModelInput.max_utility
     ModelInput.Strategic_Consumer = get_values_from_user(f"\n Please select the strategic company in {ModelInput.Set_J}: ", ModelInput.Set_J)
     return ModelInput
-    
+
+##########################################################################
+# RETURN OUTPUT SOLUTION
+##########################################################################
+def ReturnOutputSolution_function(Model, Time, solver_name, Locally_or_NEOS_Server):
+    cleared_price = Model.Lambda.value
+    OutputSolution = DataStorageClass('Output Data')
+    OutputSolution.Objective = Model.Objective()
+    OutputSolution.p = {(i, u): Model.p[i, u].value for i, u in Model.IU}
+    OutputSolution.d = {(j, c): Model.d[j, c].value for j, c in Model.JC}
+    OutputSolution.Strategic_b = {(z, c): Model.b[z, c].value for z, c in Model.ZC}
+    OutputSolution.Cleared_Price = cleared_price
+    OutputSolution.profit = sum(cleared_price * Model.p[i, u].value - Model.Cost[i, u] * Model.p[i, u].value for i, u in Model.IU)
+    OutputSolution.utility = sum(Model.max_utility[j, c]*Model.d[j, c].value - cleared_price*Model.d[j, c].value for j, c in Model.JC)
+    OutputSolution.SocialWelfare = sum(cleared_price * Model.p[i, u].value - Model.Cost[i, u] * Model.p[i, u].value for i, u in Model.IU) + sum(Model.max_utility[j, c]*Model.d[j, c].value - cleared_price*Model.d[j, c].value for j, c in Model.JC)
+    OutputSolution.mu_p_min = {(i, u): Model.mu_p_min[i, u].value for i, u in Model.IU}
+    OutputSolution.mu_p_max = {(i, u): Model.mu_p_max[i, u].value for i, u in Model.IU}
+    OutputSolution.mu_d_min = {(j, c): Model.mu_d_min[j, c].value for j, c in Model.JC}
+    OutputSolution.mu_d_max = {(j, c): Model.mu_d_max[j, c].value for j, c in Model.JC}
+    OutputSolution.Computational_Time = Time
+    OutputSolution.Solver_Name = solver_name
+    OutputSolution.Min_Max_Obj = Model.Objective.sense.name
+    OutputSolution.Locally_or_NEOS_Server = Locally_or_NEOS_Server
+    return OutputSolution
+
 ##########################################################################
 # CLASS DEFINITION
 ##########################################################################
@@ -98,7 +123,7 @@ def Linear_or_Non_Linear():
 ##########################################################################
 # CONSTRAINTS FUNCTIONS
 ##########################################################################        
-# Objective: Utility Maximization
+# Objective: Strategic Consumer Utility
 def Utility_objective(model):
     return sum(model.max_utility[z, c]*model.d[z, c] - model.d[z, c]*model.Lambda for z, c in model.ZC)
 
@@ -251,7 +276,7 @@ def Creates_BilevelStrategicConsumerModel(ModelInput):
 ##########################################################################
 # SOLVE MODEL FUNCTION
 ##########################################################################
-def Solve_Model(BilevelStrategicConsumerModel):
+def Solve_Model(Model):
     Select_Solve_Locally_NEOS = get_values_from_user("\n Please select: \n 1 - Solve Locally \n 2 - Solve using NEOS Server \n Type the value: ", list(range(1, 3)))   
     if Select_Solve_Locally_NEOS == 1:
         (Select_Solver, solver_name) = Linear_or_Non_Linear()
@@ -277,7 +302,7 @@ def Solve_Model(BilevelStrategicConsumerModel):
         start_time_neos = time.time()
         
         # Solve model locally
-        result = solver.solve(BilevelStrategicConsumerModel, tee=True)
+        result = solver.solve(Model, tee=True)
         
         # End timer
         end_time_neos = time.time()
@@ -291,7 +316,7 @@ def Solve_Model(BilevelStrategicConsumerModel):
         start_time_neos = time.time()
         
         # Solve model using NEOS Server
-        result = neos_solver.solve(BilevelStrategicConsumerModel,solver= solver_name, tee=True,load_solutions=True, suffixes=['dual'])
+        result = neos_solver.solve(Model,solver= solver_name, tee=True,load_solutions=True, suffixes=['dual'])
         
         # End timer
         end_time_neos = time.time()
@@ -299,27 +324,7 @@ def Solve_Model(BilevelStrategicConsumerModel):
         # Compute elapsed time
         elapsed_time_neos = end_time_neos - start_time_neos
     
-    cleared_price = BilevelStrategicConsumerModel.Lambda.value
-    ModelOutput = DataStorageClass('Output Data')
-    
-    ModelOutput.Objective = BilevelStrategicConsumerModel.Objective()
-    ModelOutput.p = {(i, u): BilevelStrategicConsumerModel.p[i, u].value for i, u in BilevelStrategicConsumerModel.IU}
-    ModelOutput.d = {(j, c): BilevelStrategicConsumerModel.d[j, c].value for j, c in BilevelStrategicConsumerModel.JC}
-    ModelOutput.Strategic_b = {(z, c): BilevelStrategicConsumerModel.b[z, c].value for z, c in BilevelStrategicConsumerModel.ZC}
-    ModelOutput.Cleared_Price = cleared_price
-    ModelOutput.profit = sum(cleared_price * BilevelStrategicConsumerModel.p[i, u].value - BilevelStrategicConsumerModel.Cost[i, u] * BilevelStrategicConsumerModel.p[i, u].value for i, u in BilevelStrategicConsumerModel.IU)
-    ModelOutput.utility = sum(BilevelStrategicConsumerModel.max_utility[j, c]*BilevelStrategicConsumerModel.d[j, c].value - cleared_price*BilevelStrategicConsumerModel.d[j, c].value for j, c in BilevelStrategicConsumerModel.JC)
-    ModelOutput.SocialWelfare = sum(cleared_price * BilevelStrategicConsumerModel.p[i, u].value - BilevelStrategicConsumerModel.Cost[i, u] * BilevelStrategicConsumerModel.p[i, u].value for i, u in BilevelStrategicConsumerModel.IU) + sum(BilevelStrategicConsumerModel.max_utility[j, c]*BilevelStrategicConsumerModel.d[j, c].value - cleared_price*BilevelStrategicConsumerModel.d[j, c].value for j, c in BilevelStrategicConsumerModel.JC)
-    ModelOutput.mu_p_min = {(i, u): BilevelStrategicConsumerModel.mu_p_min[i, u].value for i, u in BilevelStrategicConsumerModel.IU}
-    ModelOutput.mu_p_max = {(i, u): BilevelStrategicConsumerModel.mu_p_max[i, u].value for i, u in BilevelStrategicConsumerModel.IU}
-    ModelOutput.mu_d_min = {(j, c): BilevelStrategicConsumerModel.mu_d_min[j, c].value for j, c in BilevelStrategicConsumerModel.JC}
-    ModelOutput.mu_d_max = {(j, c): BilevelStrategicConsumerModel.mu_d_max[j, c].value for j, c in BilevelStrategicConsumerModel.JC}
-    ModelOutput.Computational_Time = elapsed_time_neos
-    ModelOutput.Solver_Name = solver_name
-    ModelOutput.Min_Max_Obj = BilevelStrategicConsumerModel.Objective.sense.name
-    ModelOutput.Locally_or_NEOS_Server = Locally_or_NEOS_Server
-    
-    return ModelOutput
+    return [Model, elapsed_time_neos, solver_name, Locally_or_NEOS_Server]
 
 if __name__ == "__main__":
     main()
