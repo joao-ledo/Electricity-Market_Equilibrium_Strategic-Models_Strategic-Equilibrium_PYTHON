@@ -1,5 +1,5 @@
 #********************************************************************************************************************************************************
-#*                                                                 MPECy STRATEGIC PRODUCER                                                             *
+#*                                                                 MPEC_y STRATEGIC PRODUCER                                                             *
 #*************************************************************************************************-Developed by Joao Augusto Silva Ledo-*****************
 #* This is a bilevel model (Stackelberg Game) which the upper-level embodies the strategic producer and the lower-level the entire market clearing      *
 #* that is replaced by 2 different optimality conditions:                                                                                               *
