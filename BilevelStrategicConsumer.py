@@ -28,9 +28,9 @@ from pyomo.opt import SolverFactory
 def main():
     ModelInput = LoadInputData_function()
     BilevelStrategicConsumerModel = Creates_BilevelStrategicConsumerModel(ModelInput)    
-    ReturnOutputSolution = Solve_Model(BilevelStrategicConsumerModel)
+    OutputSolution = Solve_Model(BilevelStrategicConsumerModel)
     print("\n", ModelInput, "\n")
-    print(ReturnOutputSolution, "\n")
+    print(OutputSolution, "\n")
 
 ##########################################################################
 # LOAD INPUT DATA FUNCTION
