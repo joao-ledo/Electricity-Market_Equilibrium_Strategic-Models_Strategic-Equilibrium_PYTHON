@@ -29,15 +29,15 @@ from pyomo.opt import SolverFactory
 def main():
     ModelInput = LoadInputData_function()
     BilevelStrategicProducerModel = Creates_BilevelStrategicProducerModel(ModelInput)    
-    ModelOutput = Solve_Model(BilevelStrategicProducerModel)
+    OutputSolution = Solve_Model(BilevelStrategicProducerModel)
     print("\n", ModelInput, "\n")
-    print(ModelOutput, "\n")
+    print(OutputSolution, "\n")
 
 ##########################################################################
 # LOAD INPUT DATA FUNCTION
 ##########################################################################
 def LoadInputData_function():
-    ModelInput = LoadInputData('Input Data')
+    ModelInput = DataStorageClass('Input Data')
     ModelInput.Set_I = [1, 2]
     ModelInput.Set_U = {1: [1],2: [2]}
     ModelInput.Set_J = [1]
@@ -54,47 +54,9 @@ def LoadInputData_function():
 ##########################################################################
 # CLASS DEFINITION
 ##########################################################################
-class LoadInputData:  # method of the class accountable for creating its atributes
+class DataStorageClass:  # method of the class accountable for creating its atributes
     def __init__(self, Name):
         self.Name = Name
-#        self.Set_I
-#        self.Set_U
-#        self.Set_J
-#        self.Set_C
-#        self.Cost = Cost
-#        self.max_utility = max_utility
-#        self.p_max = p_max
-#        self.d_max = d_max
-#        self.o_aux = o_aux
-#        self.b = b
-        
-    def __repr__(self):  # method of the class accountable for returning all its atributes in a dynamic print
-        return f"{self.__dict__}"
-    
-    def as_list(self):  # method of the class accountable for returning all its atributes in a dynamic list
-        return list(self.__dict__.values())
-    
-    def __str__(self):  # method of the class accountable for returning all its atributes in a dynamic string
-        return str(self.__dict__)
-    
-class ReturnOutputSolution:  # method of the class accountable for creating its outputs
-    def __init__(self, Objective, p, d, Strategic_o, Cleared_Price, profit, utility, SocialWelfare, mu_p_min, mu_p_max, mu_d_min, mu_d_max, Time, Solver_Name, Min_Max_Obj, Locally_or_NEOS_Server):
-        self.Objective = Objective
-        self.p = p
-        self.d = d
-        self.Strategic_o = Strategic_o
-        self.Cleared_Price = Cleared_Price
-        self.profit = profit
-        self.utility = utility
-        self.SocialWelfare = SocialWelfare
-        self.mu_p_min = mu_p_min
-        self.mu_p_max = mu_p_max
-        self.mu_d_min = mu_d_min
-        self.mu_d_max = mu_d_max
-        self.Computational_Time = Time
-        self.Solver_Name = Solver_Name
-        self.Min_Max_Obj = Min_Max_Obj
-        self.Locally_or_NEOS_Server = Locally_or_NEOS_Server
         
     def __repr__(self):  # method of the class accountable for returning all its atributes in a dynamic print
         return f"{self.__dict__}"
@@ -340,22 +302,27 @@ def Solve_Model(BilevelStrategicProducerModel):
         elapsed_time_neos = end_time_neos - start_time_neos
     
     cleared_price = BilevelStrategicProducerModel.Lambda.value
-    ModelOutput = ReturnOutputSolution(BilevelStrategicProducerModel.Objective(),
-                                       {(i, u): BilevelStrategicProducerModel.p[i, u].value for i, u in BilevelStrategicProducerModel.IU},
-                                       {(j, c): BilevelStrategicProducerModel.d[j, c].value for j, c in BilevelStrategicProducerModel.JC},
-                                       {(y, u): BilevelStrategicProducerModel.o[y, u].value for y, u in BilevelStrategicProducerModel.YU},
-                                       cleared_price,
-                                       sum(cleared_price * BilevelStrategicProducerModel.p[i, u].value - BilevelStrategicProducerModel.Cost[i, u] * BilevelStrategicProducerModel.p[i, u].value for i, u in BilevelStrategicProducerModel.IU),
-                                       sum(BilevelStrategicProducerModel.max_utility[j, c]*BilevelStrategicProducerModel.d[j, c].value - cleared_price*BilevelStrategicProducerModel.d[j, c].value for j, c in BilevelStrategicProducerModel.JC),
-                                       sum(cleared_price * BilevelStrategicProducerModel.p[i, u].value - BilevelStrategicProducerModel.Cost[i, u] * BilevelStrategicProducerModel.p[i, u].value for i, u in BilevelStrategicProducerModel.IU) + sum(BilevelStrategicProducerModel.max_utility[j, c]*BilevelStrategicProducerModel.d[j, c].value - cleared_price*BilevelStrategicProducerModel.d[j, c].value for j, c in BilevelStrategicProducerModel.JC),
-                                       {(i, u): BilevelStrategicProducerModel.mu_p_min[i, u].value for i, u in BilevelStrategicProducerModel.IU}, 
-                                       {(i, u): BilevelStrategicProducerModel.mu_p_max[i, u].value for i, u in BilevelStrategicProducerModel.IU}, 
-                                       {(j, c): BilevelStrategicProducerModel.mu_d_min[j, c].value for j, c in BilevelStrategicProducerModel.JC}, 
-                                       {(j, c): BilevelStrategicProducerModel.mu_d_max[j, c].value for j, c in BilevelStrategicProducerModel.JC}, 
-                                       elapsed_time_neos,
-                                       solver_name,
-                                       BilevelStrategicProducerModel.Objective.sense.name,
-                                       Locally_or_NEOS_Server)
+    
+    
+    ModelOutput = DataStorageClass('Output Data')
+    
+    ModelOutput.Objective = BilevelStrategicProducerModel.Objective()
+    ModelOutput.p = {(i, u): BilevelStrategicProducerModel.p[i, u].value for i, u in BilevelStrategicProducerModel.IU}
+    ModelOutput.d = {(j, c): BilevelStrategicProducerModel.d[j, c].value for j, c in BilevelStrategicProducerModel.JC}
+    ModelOutput.Strategic_o = {(y, u): BilevelStrategicProducerModel.o[y, u].value for y, u in BilevelStrategicProducerModel.YU}
+    ModelOutput.Cleared_Price = cleared_price
+    ModelOutput.profit = sum(cleared_price * BilevelStrategicProducerModel.p[i, u].value - BilevelStrategicProducerModel.Cost[i, u] * BilevelStrategicProducerModel.p[i, u].value for i, u in BilevelStrategicProducerModel.IU)
+    ModelOutput.utility = sum(BilevelStrategicProducerModel.max_utility[j, c]*BilevelStrategicProducerModel.d[j, c].value - cleared_price*BilevelStrategicProducerModel.d[j, c].value for j, c in BilevelStrategicProducerModel.JC)
+    ModelOutput.SocialWelfare = sum(cleared_price * BilevelStrategicProducerModel.p[i, u].value - BilevelStrategicProducerModel.Cost[i, u] * BilevelStrategicProducerModel.p[i, u].value for i, u in BilevelStrategicProducerModel.IU) + sum(BilevelStrategicProducerModel.max_utility[j, c]*BilevelStrategicProducerModel.d[j, c].value - cleared_price*BilevelStrategicProducerModel.d[j, c].value for j, c in BilevelStrategicProducerModel.JC)
+    ModelOutput.mu_p_min = {(i, u): BilevelStrategicProducerModel.mu_p_min[i, u].value for i, u in BilevelStrategicProducerModel.IU}
+    ModelOutput.mu_p_max = {(i, u): BilevelStrategicProducerModel.mu_p_max[i, u].value for i, u in BilevelStrategicProducerModel.IU}
+    ModelOutput.mu_d_min = {(j, c): BilevelStrategicProducerModel.mu_d_min[j, c].value for j, c in BilevelStrategicProducerModel.JC}
+    ModelOutput.mu_d_max = {(j, c): BilevelStrategicProducerModel.mu_d_max[j, c].value for j, c in BilevelStrategicProducerModel.JC}
+    ModelOutput.Computational_Time = elapsed_time_neos
+    ModelOutput.Solver_Name = solver_name
+    ModelOutput.Min_Max_Obj = BilevelStrategicProducerModel.Objective.sense.name
+    ModelOutput.Locally_or_NEOS_Server = Locally_or_NEOS_Server
+        
     return ModelOutput
 
 if __name__ == "__main__":
