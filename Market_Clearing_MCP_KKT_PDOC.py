@@ -17,52 +17,76 @@ from pyomo.environ import *
 from pyomo.mpec import Complementarity, complements
 from pyomo.opt import SolverFactory
 
-class LoadInputData:  # method of the class accountable for creating its atributes
-    def __init__(self, Cost, max_utility, p_max, d_max, o, b):
-        self.Cost = Cost
-        self.max_utility = max_utility
-        self.p_max = p_max
-        self.d_max = d_max
-        self.o = o
-        self.b = b
-        
-    def __repr__(self):  # method of the class accountable for returning all its atributes in a dynamic print
-        return f"{self.__dict__}"
-    
-    def as_list(self):  # method of the class accountable for returning all its atributes in a dynamic list
-        return list(self.__dict__.values())
-    
-    def __str__(self):  # method of the class accountable for returning all its atributes in a dynamic string
-        return str(self.__dict__)
-    
-class ReturnOutputSolution:  # method of the class accountable for creating its outputs
-    def __init__(self, MCP, Objective, p, d, Cleared_Price, profit, utility, SocialWelfare, mu_p_min, mu_p_max, mu_d_min, mu_d_max, Time, Solver_Name, Min_Max_Obj, Locally_or_NEOS_Server):
-        self.MCP = MCP
-        self.Objective = Objective
-        self.p = p
-        self.d = d
-        self.Cleared_Price = Cleared_Price
-        self.profit = profit
-        self.utility = utility
-        self.SocialWelfare = SocialWelfare
-        self.mu_p_min = mu_p_min
-        self.mu_p_max = mu_p_max
-        self.mu_d_min = mu_d_min
-        self.mu_d_max = mu_d_max
-        self.Computational_Time = Time
-        self.Solver_Name = Solver_Name
-        self.Min_Max_Obj = Min_Max_Obj
-        self.Locally_or_NEOS_Server = Locally_or_NEOS_Server
-        
-    def __repr__(self):  # method of the class accountable for returning all its atributes in a dynamic print
-        return f"{self.__dict__}"
-    
-    def as_list(self):  # method of the class accountable for returning all its atributes in a dynamic list
-        return list(self.__dict__.values())
-    
-    def __str__(self):  # method of the class accountable for returning all its atributes in a dynamic string
-        return str(self.__dict__)
+##########################################################################
+# MAIN
+##########################################################################
+def main():
+    ModelInput = LoadInputData_function()
+    MarketClearingModel = Creates_MarketClearingModel(ModelInput)
+    (MarketClearingModel, Time, solver_name, Locally_or_NEOS_Server) = Solve_Model(MarketClearingModel)
+    OutputSolution = ReturnOutputSolution_function(MarketClearingModel, Time, solver_name, Locally_or_NEOS_Server)
+    print("\n", ModelInput, "\n")
+    print(OutputSolution, "\n")
 
+##########################################################################
+# LOAD INPUT DATA FUNCTION
+##########################################################################
+def LoadInputData_function():
+    ModelInput = DataStorageClass('Input Data')
+    ModelInput.Set_I = [1, 2]
+    ModelInput.Set_U = {1: [1],2: [2]}
+    ModelInput.Set_J = [1]
+    ModelInput.Set_C = {1: [1]}
+    ModelInput.Cost = {(1, 1): 1, (2, 2): 2}
+    ModelInput.max_utility = {(1, 1): 3,}
+    ModelInput.p_max = {(1, 1): 6,(2, 2): 6}
+    ModelInput.d_max = {(1, 1): 10}
+    ModelInput.o = ModelInput.Cost
+    ModelInput.b = ModelInput.max_utility
+    return ModelInput
+
+##########################################################################
+# RETURN OUTPUT SOLUTION
+##########################################################################
+def ReturnOutputSolution_function(Model, Time, solver_name, Locally_or_NEOS_Server):
+    cleared_price = Model.Lambda.value
+    OutputSolution = DataStorageClass('Output Data')
+    OutputSolution.Objective = Model.Objective()
+    OutputSolution.p = {(i, u): Model.p[i, u].value for i, u in Model.IU}
+    OutputSolution.d = {(j, c): Model.d[j, c].value for j, c in Model.JC}
+    OutputSolution.Cleared_Price = cleared_price
+    OutputSolution.profit = sum(cleared_price * Model.p[i, u].value - Model.Cost[i, u] * Model.p[i, u].value for i, u in Model.IU)
+    OutputSolution.utility = sum(Model.max_utility[j, c]*Model.d[j, c].value - cleared_price*Model.d[j, c].value for j, c in Model.JC)
+    OutputSolution.SocialWelfare = sum(cleared_price * Model.p[i, u].value - Model.Cost[i, u] * Model.p[i, u].value for i, u in Model.IU) + sum(Model.max_utility[j, c]*Model.d[j, c].value - cleared_price*Model.d[j, c].value for j, c in Model.JC)
+    OutputSolution.mu_p_min = {(i, u): Model.mu_p_min[i, u].value for i, u in Model.IU}
+    OutputSolution.mu_p_max = {(i, u): Model.mu_p_max[i, u].value for i, u in Model.IU}
+    OutputSolution.mu_d_min = {(j, c): Model.mu_d_min[j, c].value for j, c in Model.JC}
+    OutputSolution.mu_d_max = {(j, c): Model.mu_d_max[j, c].value for j, c in Model.JC}
+    OutputSolution.Computational_Time = Time
+    OutputSolution.Solver_Name = solver_name
+    OutputSolution.Min_Max_Obj = Model.Objective.sense.name
+    OutputSolution.Locally_or_NEOS_Server = Locally_or_NEOS_Server
+    return OutputSolution
+    
+##########################################################################
+# CLASS DEFINITION
+##########################################################################
+class DataStorageClass:  # method of the class accountable for creating its atributes
+    def __init__(self, Name):
+        self.Name = Name
+        
+    def __repr__(self):  # method of the class accountable for returning all its atributes in a dynamic print
+        return f"{self.__dict__}"
+    
+    def as_list(self):  # method of the class accountable for returning all its atributes in a dynamic list
+        return list(self.__dict__.values())
+    
+    def __str__(self):  # method of the class accountable for returning all its atributes in a dynamic string
+        return str(self.__dict__)
+    
+##########################################################################
+# CHOOSE OPTION FUNCTIONS
+########################################################################## 
 def get_values_from_user(prompt, allowed_values):
     while True:
         try:
@@ -75,213 +99,192 @@ def get_values_from_user(prompt, allowed_values):
             print("\n Invalid input! {prompt}")
             
 def Linear_or_Non_Linear():
-        Selec_Linear_Non_Linear = get_values_from_user("\n Please select: \n 1 - Linear Solvers \n 2 - Non-linear Solver \n Type the value: ", list(range(1, 3)))
-        if Selec_Linear_Non_Linear == 1:
-            Select_Solver = get_values_from_user("\n Please select: \n 1 - glpk \n 2 - cbc \n 3 - highs \n 4 - cplex \n 5 - gurobi \n 6 - xpress \n 7 - scip \n Type the value: ", list(range(1, 8)))
-            solver_name = LinearSolver[Select_Solver-1]
-        else:
-            Select_Solver = get_values_from_user("\n Please select: \n 1 - ipopt \n 2 - knitro \n 3 - conopt \n 4 - bonmin \n 5 - couenne \n 6 - baron \n 7 - snopt \n Type the value: ", list(range(1, 8)))
-            solver_name = Nonlinear[Select_Solver-1]
-        return [Select_Solver, solver_name]
+    # Available Solvers
+    #['baron', 'bonmin', 'cbc', 'conopt', 'couenne', 'cplex', 'filmint', 'filter', 'ipopt', 'knitro', 'l-bfgs-b', 'lancelot', 'lgo', 'loqo', 'minlp', 'minos', 'minto', 'mosek', 'ooqp', 'path', 'raposa', 'snopt']
+    LinearSolver = ['glpk','cbc','highs','cplex','gurobi','xpress', 'scip']
+    Nonlinear = ['ipopt', 'knitro', 'conopt', 'bonmin', 'couenne', 'baron', 'snopt']
+    Selec_Linear_Non_Linear = get_values_from_user("\n Please select: \n 1 - Linear Solvers \n 2 - Non-linear Solver \n Type the value: ", list(range(1, 3)))
+    if Selec_Linear_Non_Linear == 1:
+        Select_Solver = get_values_from_user("\n Please select: \n 1 - glpk \n 2 - cbc \n 3 - highs \n 4 - cplex \n 5 - gurobi \n 6 - xpress \n 7 - scip \n Type the value: ", list(range(1, 8)))
+        solver_name = LinearSolver[Select_Solver-1]
+    else:
+        Select_Solver = get_values_from_user("\n Please select: \n 1 - ipopt \n 2 - knitro \n 3 - conopt \n 4 - bonmin \n 5 - couenne \n 6 - baron \n 7 - snopt \n Type the value: ", list(range(1, 8)))
+        solver_name = Nonlinear[Select_Solver-1]
+    return [Select_Solver, solver_name]
 
-# Available Solvers
-LinearSolver = ['glpk','cbc','highs','cplex','gurobi','xpress', 'scip']
-Nonlinear = ['ipopt', 'knitro', 'conopt', 'bonmin', 'couenne', 'baron', 'snopt']
 
-#['baron', 'bonmin', 'cbc', 'conopt', 'couenne', 'cplex', 'filmint', 'filter', 'ipopt', 'knitro', 'l-bfgs-b', 'lancelot', 'lgo', 'loqo', 'minlp', 'minos', 'minto', 'mosek', 'ooqp', 'path', 'raposa', 'snopt']
-# Create model
-MarketClearingModel = ConcreteModel()
-
-# Creates the Sets
-MarketClearingModel.I = Set(initialize= [1, 2])  # Example with 2 producers
-MarketClearingModel.U = Set(MarketClearingModel.I, initialize={
-    1: [1],
-    2: [2]
-})
-MarketClearingModel.IU = Set(dimen=2, initialize=lambda m: [(i, u) for i in m.I for u in m.U[i]])
-
-MarketClearingModel.J = Set(initialize= [1])  # Example with 1 consumer
-MarketClearingModel.C = Set(MarketClearingModel.J, initialize={
-    1: [1]
-})
-MarketClearingModel.JC = Set(dimen=2, initialize=lambda m: [(j, c) for j in m.J for c in m.C[j]])
-
-# Parameters
-MarketClearingModel.Cost = Param(MarketClearingModel.IU, initialize={
-    (1, 1): 1,
-    (2, 2): 2
-})  # Cost per unit for each producer-unit pair
-
-MarketClearingModel.max_utility = Param(MarketClearingModel.IU, initialize={
-    (1, 1): 3,
-})  # Max utility per consumer for each consumer-demand pair
-
-MarketClearingModel.p_max =  Param(MarketClearingModel.IU, 
-                                   initialize={(1, 1): 6, 
-                                               (2, 2): 6}
-                                   )
-                                                        
-MarketClearingModel.d_max = Param(MarketClearingModel.JC, initialize={(1, 1): 10})
-
-MarketClearingModel.o = {(i, u): MarketClearingModel.Cost[i, u] for i, u in MarketClearingModel.IU}
-
-MarketClearingModel.b = {(j, c): MarketClearingModel.max_utility[j, c] for j, c in MarketClearingModel.JC}
-
-# Variables
-MarketClearingModel.p = Var(MarketClearingModel.IU, within=NonNegativeReals)
-MarketClearingModel.d = Var(MarketClearingModel.JC, within=NonNegativeReals)
-MarketClearingModel.Lambda = Var()
-MarketClearingModel.mu_p_min = Var(MarketClearingModel.IU, within=NonNegativeReals)
-MarketClearingModel.mu_p_max = Var(MarketClearingModel.IU, within=NonNegativeReals)
-MarketClearingModel.mu_d_min = Var(MarketClearingModel.JC, within=NonNegativeReals)
-MarketClearingModel.mu_d_max = Var(MarketClearingModel.JC, within=NonNegativeReals)
-
-# Starting value
-MarketClearingModel.Lambda.value = 2
-
-# Saving Model Input Data
-ModelInput = LoadInputData({(i, u): MarketClearingModel.Cost[i, u] for i, u in MarketClearingModel.IU},
-                           {(j, c): MarketClearingModel.max_utility[j, c] for j, c in MarketClearingModel.JC},
-                           {(i, u): MarketClearingModel.p_max[i, u] for i, u in MarketClearingModel.IU},
-                           {(j, c): MarketClearingModel.d_max[j, c] for j, c in MarketClearingModel.JC}, 
-                           {(i, u): MarketClearingModel.o[i, u] for i, u in MarketClearingModel.IU},
-                           {(j, c): MarketClearingModel.b[j, c] for j, c in MarketClearingModel.JC})
-
-# Unitary Objective Function
-MarketClearingModel.Objective = Objective(rule=1, sense=maximize)
+##########################################################################
+# CONSTRAINTS FUNCTIONS
+##########################################################################        
 
 # Power Supply Balance Constraint
 def Balance_Constraint(model):
     return sum(model.d[j, c] for j, c in model.JC) - sum(model.p[i, u] for i, u in model.IU) == 0
-MarketClearingModel.Balance_Constraint = Constraint(rule=Balance_Constraint)
 
 # Min power limit constraint for each unit
 def min_power_constraint(model, i, u):
     return model.p[i, u] >= 0 # Min power for each unit
-MarketClearingModel.min_power_constraint = Constraint(MarketClearingModel.IU, rule=min_power_constraint)
 
 # Max power limit constraint for each unit
 def max_power_constraint(model, i, u):
     return model.p[i, u] <= model.p_max[i, u] # Max power for each unit
-MarketClearingModel.max_power_constraint = Constraint(MarketClearingModel.IU, rule=max_power_constraint)
 
 # Min power limit constraint for each unit
 def min_demand_constraint(model, j, c):
     return model.d[j, c] >= 0 # Min demand for each unit
-MarketClearingModel.min_demand_constraint = Constraint(MarketClearingModel.JC, rule=min_demand_constraint)
 
 # Max power limit constraint for each unit
 def max_demand_constraint(model, j, c):
     return model.d[j, c] <= model.d_max[j, c] # Max demand for each unit
-MarketClearingModel.max_demand_constraint = Constraint(MarketClearingModel.JC, rule=max_demand_constraint)
 
-def deriv_p_constraint(model, i, u):
+def deriv_p_NS_constraint(model, i, u):
     return model.o[i, u] - model.Lambda - model.mu_p_min[i, u] + model.mu_p_max[i, u] == 0
-MarketClearingModel.deriv_p_constraint = Constraint(MarketClearingModel.IU, rule=deriv_p_constraint)
 
-def deriv_d_constraint(model, j, c):
+def deriv_d_NS_constraint(model, j, c):
     return - model.b[j, c] + model.Lambda - model.mu_d_min[j, c] + model.mu_d_max[j, c] == 0
-MarketClearingModel.deriv_d_constraint = Constraint(MarketClearingModel.JC, rule=deriv_d_constraint)
 
+# * Dual variables positivity
 def positivity_p_min_constraint(model, i, u):
     return model.mu_p_min[i, u] >= 0
-MarketClearingModel.positivity_p_min_constraint = Constraint(MarketClearingModel.IU, rule=positivity_p_min_constraint)
 
 def positivity_p_max_constraint(model, i, u):
     return model.mu_p_max[i, u] >= 0
-MarketClearingModel.positivity_p_max_constraint = Constraint(MarketClearingModel.IU, rule=positivity_p_max_constraint)
 
 def positivity_d_min_constraint(model, j, c):
     return model.mu_d_min[j, c] >= 0
-MarketClearingModel.positivity_d_min_constraint = Constraint(MarketClearingModel.JC, rule=positivity_d_min_constraint)
 
 def positivity_d_max_constraint(model, j, c):
     return model.mu_d_max[j, c] >= 0
-MarketClearingModel.positivity_d_max_constraint = Constraint(MarketClearingModel.JC, rule=positivity_d_max_constraint)
 
-MCP_KKT_or_PDOC = get_values_from_user("\n Please select: \n 1 - KKT MCP Market Clearing model \n 2 - PDOC MCP Market Clearing model \n Type the value: ", list(range(1, 3)))
+# * complementary constraints
+def comp_p_min_constraint(model, i, u):
+    return model.p[i, u]*model.mu_p_min[i, u] == 0
 
-if MCP_KKT_or_PDOC == 1:
-    MCP = 'KKT MCP'
-    #Complementarities
-    def comp_p_min_constraint(model, i, u):
-        return model.p[i, u]*model.mu_p_min[i, u] == 0
-    MarketClearingModel.comp_p_min_constraint = Constraint(MarketClearingModel.IU, rule=comp_p_min_constraint)
-    
-    def comp_p_max_constraint(model, i, u):
-        return model.p_max[i, u]*model.mu_p_max[i, u] - model.p[i, u]*model.mu_p_max[i, u] == 0
-    MarketClearingModel.comp_p_max_constraint = Constraint(MarketClearingModel.IU, rule=comp_p_max_constraint)
-    
-    def comp_d_min_constraint(model, j, c):
-        return model.d[j, c]*model.mu_d_min[j, c] == 0
-    MarketClearingModel.comp_d_min_constraint = Constraint(MarketClearingModel.JC, rule=comp_d_min_constraint)
-    
-    def comp_d_max_constraint(model, j, c):
-        return model.d_max[j, c]*model.mu_d_max[j, c] - model.d[j, c]*model.mu_d_max[j, c] == 0
-    MarketClearingModel.comp_d_max_constraint = Constraint(MarketClearingModel.JC, rule=comp_d_max_constraint)
-else:
-    MCP = 'PDOC MCP'
-    def SDE_constraint(model):
-        return sum(model.o[i, u]*model.p[i, u] for i, u in model.IU) -  sum(model.b[j, c]*model.d[j, c] for j, c in model.JC) == - sum(model.mu_p_max[i, u]*model.p_max[i, u] for i, u in model.IU) - sum(model.mu_d_max[j, c]*model.d_max[j, c] for j, c in model.JC)
-    MarketClearingModel.SDE_constraint = Constraint(rule=SDE_constraint)
-    
-# Add suffix for duals
-MarketClearingModel.dual = Suffix(direction=Suffix.IMPORT)
-    
-Select_Solve_Locally_NEOS = get_values_from_user("\n Please select: \n 1 - Solve Locally \n 2 - Solve using NEOS Server \n Type the value: ", list(range(1, 3)))
+def comp_p_max_constraint(model, i, u):
+    return model.p_max[i, u]*model.mu_p_max[i, u] - model.p[i, u]*model.mu_p_max[i, u] == 0
 
-if Select_Solve_Locally_NEOS == 1:
-    (Select_Solver, solver_name) = Linear_or_Non_Linear()
-else:
-    os.environ['NEOS_EMAIL'] = input('\n Please provide your NEOS Server email: ')
-    (Select_Solver, solver_name) = Linear_or_Non_Linear()
+def comp_d_min_constraint(model, j, c):
+    return model.d[j, c]*model.mu_d_min[j, c] == 0
 
-if Select_Solve_Locally_NEOS == 1:
-    Locally_or_NEOS_Server = 'Locally'
-    solver = SolverFactory(solver_name)
-    # Start timer
-    start_time_neos = time.time()
-    
-    # Solve model locally
-    result = solver.solve(MarketClearingModel, tee=True)
-    
-    # End timer
-    end_time_neos = time.time()
-    
-    # Compute elapsed time
-    elapsed_time_neos = end_time_neos - start_time_neos
-else:
-    Locally_or_NEOS_Server = 'NEOS SERVER'
-    neos_solver = SolverManagerFactory('neos')
-    # Start timer
-    start_time_neos = time.time()
-    
-    # Solve model using NEOS Server
-    result = neos_solver.solve(MarketClearingModel,solver= solver_name, tee=True,load_solutions=True, suffixes=['dual'])
-    
-    # End timer
-    end_time_neos = time.time()
-    
-    # Compute elapsed time
-    elapsed_time_neos = end_time_neos - start_time_neos
+def comp_d_max_constraint(model, j, c):
+    return model.d_max[j, c]*model.mu_d_max[j, c] - model.d[j, c]*model.mu_d_max[j, c] == 0
 
-cleared_price = MarketClearingModel.Lambda.value
-ModelOutput = ReturnOutputSolution(MCP,
-                                   MarketClearingModel.Objective(),
-                                   {(i, u): MarketClearingModel.p[i, u].value for i, u in MarketClearingModel.IU},
-                                   {(j, c): MarketClearingModel.d[j, c].value for j, c in MarketClearingModel.JC},
-                                   cleared_price,
-                                   sum(cleared_price * MarketClearingModel.p[i, u].value - MarketClearingModel.Cost[i, u] * MarketClearingModel.p[i, u].value for i, u in MarketClearingModel.IU),
-                                   sum(MarketClearingModel.max_utility[j, c]*MarketClearingModel.d[j, c].value - cleared_price*MarketClearingModel.d[j, c].value for j, c in MarketClearingModel.JC),
-                                   sum(cleared_price * MarketClearingModel.p[i, u].value - MarketClearingModel.Cost[i, u] * MarketClearingModel.p[i, u].value for i, u in MarketClearingModel.IU) + sum(MarketClearingModel.max_utility[j, c]*MarketClearingModel.d[j, c].value - cleared_price*MarketClearingModel.d[j, c].value for j, c in MarketClearingModel.JC),
-                                   {(i, u): MarketClearingModel.mu_p_min[i, u].value for i, u in MarketClearingModel.IU}, 
-                                   {(i, u): MarketClearingModel.mu_p_max[i, u].value for i, u in MarketClearingModel.IU}, 
-                                   {(j, c): MarketClearingModel.mu_d_min[j, c].value for j, c in MarketClearingModel.JC}, 
-                                   {(j, c): MarketClearingModel.mu_d_max[j, c].value for j, c in MarketClearingModel.JC}, 
-                                   elapsed_time_neos,
-                                   solver_name,
-                                   MarketClearingModel.Objective.sense.name,
-                                   Locally_or_NEOS_Server)
+def SDE_constraint(model):
+    return sum(model.o[i, u]*model.p[i, u] for i, u in model.IU) -  sum(model.b[j, c]*model.d[j, c] for j, c in model.JC) == - sum(model.mu_p_max[i, u]*model.p_max[i, u] for i, u in model.IU) - sum(model.mu_d_max[j, c]*model.d_max[j, c] for j, c in model.JC)    
 
-print("\n", ModelInput, "\n")
-print(ModelOutput, "\n")
+##########################################################################
+# CREATES THE MODEL FUNCTIONS
+########################################################################## 
+def KKT_or_PDOC(model):
+    MCP_KKT_or_PDOC = get_values_from_user("\n Please select: \n 1 - KKT MCP Market Clearing model \n 2 - PDOC MCP Market Clearing model \n Type the value: ", list(range(1, 3)))
+    if MCP_KKT_or_PDOC == 1:
+        MCP = 'KKT MCP'
+        model.comp_p_min_constraint = Constraint(model.IU, rule=comp_p_min_constraint)    
+        model.comp_p_max_constraint = Constraint(model.IU, rule=comp_p_max_constraint)    
+        model.comp_d_min_constraint = Constraint(model.JC, rule=comp_d_min_constraint)    
+        model.comp_d_max_constraint = Constraint(model.JC, rule=comp_d_max_constraint)
+    else:
+        MCP = 'PDOC MCP'
+        model.SDE_constraint = Constraint(rule=SDE_constraint)  
+    return (model, MCP)
+
+def Creates_MarketClearingModel(ModelInput):
+    MarketClearingModel = ConcreteModel()
+    
+    # Creates the Sets
+    # Set of all Producers
+    MarketClearingModel.I = Set(initialize= ModelInput.Set_I)  # Example with 2 producers
+    MarketClearingModel.U = Set(MarketClearingModel.I, initialize= ModelInput.Set_U)
+    MarketClearingModel.IU = Set(dimen=2, initialize=lambda m: [(i, u) for i in m.I for u in m.U[i]])
+    
+    # Set of all Consumers
+    MarketClearingModel.J = Set(initialize= ModelInput.Set_J)  # Example with 1 consumer
+    MarketClearingModel.C = Set(MarketClearingModel.J, initialize= ModelInput.Set_C)
+    MarketClearingModel.JC = Set(dimen=2, initialize=lambda m: [(j, c) for j in m.J for c in m.C[j]])
+    
+    # Parameters
+    MarketClearingModel.Cost = Param(MarketClearingModel.IU, initialize= ModelInput.Cost)  # Cost per unit for each producer-unit pair
+    MarketClearingModel.max_utility = Param(MarketClearingModel.JC, initialize= ModelInput.max_utility)  # Max utility per consumer for each consumer-demand pair
+    MarketClearingModel.p_max =  Param(MarketClearingModel.IU,initialize= ModelInput.p_max)
+    MarketClearingModel.d_max = Param(MarketClearingModel.JC, initialize= ModelInput.d_max)
+    MarketClearingModel.o = {(i, u): MarketClearingModel.Cost[i, u] for i, u in MarketClearingModel.IU}
+    MarketClearingModel.b = {(j, c): MarketClearingModel.max_utility[j, c] for j, c in MarketClearingModel.JC}
+    
+    # Variables
+    MarketClearingModel.p = Var(MarketClearingModel.IU, within=NonNegativeReals)
+    MarketClearingModel.d = Var(MarketClearingModel.JC, within=NonNegativeReals)
+    MarketClearingModel.Lambda = Var()
+    MarketClearingModel.mu_p_min = Var(MarketClearingModel.IU, within=NonNegativeReals)
+    MarketClearingModel.mu_p_max = Var(MarketClearingModel.IU, within=NonNegativeReals)
+    MarketClearingModel.mu_d_min = Var(MarketClearingModel.JC, within=NonNegativeReals)
+    MarketClearingModel.mu_d_max = Var(MarketClearingModel.JC, within=NonNegativeReals)
+    
+    # Starting value
+    #MarketClearingModel.Lambda.value = 2
+        
+    # Add constraints to the model
+    MarketClearingModel.Objective = Objective(rule=1, sense=maximize)
+    MarketClearingModel.Balance_Constraint = Constraint(rule=Balance_Constraint)
+    MarketClearingModel.min_power_constraint = Constraint(MarketClearingModel.IU, rule=min_power_constraint)
+    MarketClearingModel.max_power_constraint = Constraint(MarketClearingModel.IU, rule=max_power_constraint)
+    MarketClearingModel.min_demand_constraint = Constraint(MarketClearingModel.JC, rule=min_demand_constraint)
+    MarketClearingModel.max_demand_constraint = Constraint(MarketClearingModel.JC, rule=max_demand_constraint)
+    MarketClearingModel.deriv_p_NS_constraint = Constraint(MarketClearingModel.IU, rule=deriv_p_NS_constraint)
+    MarketClearingModel.deriv_d_NS_constraint = Constraint(MarketClearingModel.JC, rule=deriv_d_NS_constraint)
+    MarketClearingModel.positivity_p_min_constraint = Constraint(MarketClearingModel.IU, rule=positivity_p_min_constraint)
+    MarketClearingModel.positivity_p_max_constraint = Constraint(MarketClearingModel.IU, rule=positivity_p_max_constraint)
+    MarketClearingModel.positivity_d_min_constraint = Constraint(MarketClearingModel.JC, rule=positivity_d_min_constraint)
+    MarketClearingModel.positivity_d_max_constraint = Constraint(MarketClearingModel.JC, rule=positivity_d_max_constraint)
+    # Choose between KKT or PDOC and add to the model the respectively KKT or PDOC constraints
+    (MarketClearingModel, ModelInput.MCP) = KKT_or_PDOC(MarketClearingModel)
+            
+    # Add suffix for duals
+    MarketClearingModel.dual = Suffix(direction=Suffix.IMPORT)
+
+    return MarketClearingModel
+
+##########################################################################
+# SOLVE MODEL FUNCTION
+##########################################################################
+def Solve_Model(Model):
+    Select_Solve_Locally_NEOS = get_values_from_user("\n Please select: \n 1 - Solve Locally \n 2 - Solve using NEOS Server \n Type the value: ", list(range(1, 3)))   
+    if Select_Solve_Locally_NEOS == 1:
+        (Select_Solver, solver_name) = Linear_or_Non_Linear()
+    else:
+        os.environ['NEOS_EMAIL'] = input('\n Please provide your NEOS Server email: ')
+        (Select_Solver, solver_name) = Linear_or_Non_Linear()
+    
+    if Select_Solve_Locally_NEOS == 1:
+        Locally_or_NEOS_Server = 'Locally'
+        solver = SolverFactory(solver_name)
+        
+        # Start timer
+        start_time_neos = time.time()
+        
+        # Solve model locally
+        result = solver.solve(Model, tee=True)
+        
+        # End timer
+        end_time_neos = time.time()
+        
+        # Compute elapsed time
+        elapsed_time_neos = end_time_neos - start_time_neos
+    else:
+        Locally_or_NEOS_Server = 'NEOS SERVER'
+        neos_solver = SolverManagerFactory('neos')
+        # Start timer
+        start_time_neos = time.time()
+        
+        # Solve model using NEOS Server
+        result = neos_solver.solve(Model,solver= solver_name, tee=True,load_solutions=True, suffixes=['dual'])
+        
+        # End timer
+        end_time_neos = time.time()
+        
+        # Compute elapsed time
+        elapsed_time_neos = end_time_neos - start_time_neos
+        
+    return [Model, elapsed_time_neos, solver_name, Locally_or_NEOS_Server]
+
+if __name__ == "__main__":
+    main()
